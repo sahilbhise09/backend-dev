@@ -6,18 +6,20 @@ import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResonse.js"
 import mongoose from "mongoose";
 
-const generateAccessAndRefreshTokens = async(userId) =>{
-    try{
-        const user =  User.findById(userId);
-        const accessToken = user.generateAccessToken();
-        const refreshToken = user.generateRefreshToken();
+const generateAccessAndRefereshTokens = async(userId) =>{
+    try {
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
 
-        user.refreshToken = refreshToken;
-        await user.save({validateBeforeSave : false})
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
 
-        return {accessToken, refreshToken};
-    }catch(error){
-        throw new ApiError(500, "Something went Wrong while generating refresh and access token")
+        return {accessToken, refreshToken}
+
+
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while generating referesh and access token")
     }
 }
 
@@ -100,27 +102,24 @@ const registerUser = asyncHandler(async (req, res) => {
     )
 })
 
-const loginUser = asyncHandler(async (req, res) =>{
-    // req body -> data
-    // username or email
-    //find the user
-    //password check
-    //access and referesh token
-    //send cookie
+const loginUser = asyncHandler(async (req,res) => {
+    //1. req body -> data
+    //2. username or email
+    //3. find the user
+    //4. password check
+    //5. access and refresh token
+    //6. send cookie
 
-    const {email, username, password} = req.body
-    console.log(email);
+    //1. 
+    const {email, username, password} = req.body;
+    console.log(req.body)
 
-    // if (!username && !email) {
-    //     throw new ApiError(400, "username or email is required")
-    // }
-    
-    // Here is an alternative of above code based on logic discussed in video:
-    // if (!(username || email)) {
-    //     throw new ApiError(400, "username or email is required")
-        
-    // }
+    //2.
+    if (!username && !email) {
+        throw new ApiError(400, "username or email is required")
+    }
 
+    //3.
     const user = await User.findOne({
         $or: [{username}, {email}]
     })
@@ -128,13 +127,22 @@ const loginUser = asyncHandler(async (req, res) =>{
     if (!user) {
         throw new ApiError(404, "User does not exist")
     }
-    const {accessToken, refreshToken} = await generateAccessAndRefereshTokens(user._id)
 
-    const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
+    //4.
+    const isPasswordValid = await user.isPasswordCorrect(password)
+    if(!isPasswordValid){
+        throw new ApiError(401, "Invalid user credentials")
+    }
+
+    //5.
+    const {accessToken, refreshToken } = await generateAccessAndRefereshTokens(user._id);
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+    //6.
     const options = {
         httpOnly: true,
-        secure: true
+        secure:true
     }
 
     return res
@@ -143,14 +151,13 @@ const loginUser = asyncHandler(async (req, res) =>{
     .cookie("refreshToken", refreshToken, options)
     .json(
         new ApiResponse(
-            200, 
+            200,
             {
                 user: loggedInUser, accessToken, refreshToken
             },
-            "User logged In Successfully"
+            "User logged In Succesfully"
         )
     )
-
 })
 
 const logoutUser = asyncHandler(async(req, res) => {
